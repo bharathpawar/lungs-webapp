@@ -1,42 +1,47 @@
-from __future__ import division, print_function
-# coding=utf-8
-import sys
 import os
-import glob
-import re
-import numpy as np
+import sys
 
-# Keras
-from keras.applications.imagenet_utils import preprocess_input, decode_predictions
-from keras.models import load_model
-from keras.preprocessing import image
-
-# Flask utils
-from flask import Flask, redirect, url_for, request, render_template
-from werkzeug.utils import secure_filename
+# Flask
+from flask import Flask, request, render_template, Response, jsonify
+#from werkzeug.utils import secure_filename
 from gevent.pywsgi import WSGIServer
 
-# Define a flask app
+# TensorFlow and tf.keras
+#import tensorflow as tf
+#from tensorflow import keras
+
+from tensorflow.keras.applications.imagenet_utils import preprocess_input
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
+
+# Some utilites
+import numpy as np
+from util import base64_to_pil
+
+
+# Declare a flask app
 app = Flask(__name__)
 
-# Model saved with Keras model.save()
-MODEL_PATH = 'models/model_resnet.h5'
-print(" MODEL_PATH :",MODEL_PATH)
+
+#print('Model loaded. Check http://127.0.0.1:5000/')
 
 
-def model_predict(img_path, model):
-    img = image.load_img(img_path, target_size=(224, 224))
 
-    # Preprocessing the image
+MODEL_PATH = 'models/oldModel.h5'
+
+model = load_model(MODEL_PATH)
+
+print('Model loaded. Start serving...')
+
+
+def model_predict(img, model):
+    
     x = image.img_to_array(img)
-    # x = np.true_divide(x, 255)
     x = np.expand_dims(x, axis=0)
-
-    # Be careful how your trained model deals with the input
-    # otherwise, it won't make correct prediction!
-    x = preprocess_input(x, mode='caffe')
-
+    x = preprocess_input(x, mode='tf')
+    
     preds = model.predict(x)
+    
     return preds
 
 
@@ -47,39 +52,39 @@ def index():
 
 
 @app.route('/predict', methods=['GET', 'POST'])
-def upload():
+def predict():
     if request.method == 'POST':
-        # Get the file from post request
-        f = request.files['file']
+        
+        # Get the image from post request
+        img = base64_to_pil(request.json)
+       
+                
+        img.save("uploads\image.jpg")
+        
+        img_path = os.path.join(os.path.dirname(__file__),'uploads\image.jpg')
+        
+        os.path.isfile(img_path)
+        
+        img = image.load_img(img_path, target_size=(64,64))
 
-        # Save the file to ./uploads
-        basepath = os.path.dirname(__file__)
-        file_path = os.path.join(
-            basepath, 'uploads', secure_filename(f.filename))
-        f.save(file_path)
+        preds = model_predict(img, model)
+        
+        
+        result = preds[0,0]
+        
+        print(result)
+        
+        if result >0.5:
+            return jsonify(result="PNEMONIA")
+        else:
+            return jsonify(result="NORMAL")
 
-        # Load your trained model
-        model = load_model(MODEL_PATH)
-        print("*** Model Loaded ***")
-        model._make_predict_function()
-
-        # Make prediction
-        preds = model_predict(file_path, model)
-        print('*** preds ***')
-
-        # Process your result for human
-        # pred_class = preds.argmax(axis=-1)            # Simple argmax
-        pred_class = decode_predictions(preds, top=1)   # ImageNet Decode
-        print('*** pred class ***')
-        result = str(pred_class[0][0][1])               # Convert to string
-        print('*** result ***')
-        return result
-    elif request.method == 'GET':
-        return render_template('index.html')
     return None
 
 
 if __name__ == '__main__':
-    print('*** App Started ***')
-    app.run(debug=True)
+    app.run(port=5002, threaded=False)
 
+    # Serve the app with gevent
+    http_server = WSGIServer(('0.0.0.0', 5000), app)
+    http_server.serve_forever()
