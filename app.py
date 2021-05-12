@@ -20,7 +20,7 @@ from gevent.pywsgi import WSGIServer
 app = Flask(__name__)
 
 # Model saved with Keras model.save()
-MODEL_PATH = 'models/oldModel.h5'
+MODEL_PATH = 'models/xray_model.h5'
 print(" MODEL_PATH :",MODEL_PATH)
 
 
