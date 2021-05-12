@@ -9,7 +9,7 @@ A Flask **pneumonia detection** web application
 
 ## Setting up the Web-App Locally 
 
-1. Clone The Repository or Download Zip from  <git@github.com:lakshaykakkarr/Pneumonia_PB_Deploy.git> & Extract it.
+1. Clone The Repository or Download Zip from  <git@github.com:lakshaykakkarr/Pneumonia_PB_Deploy/archive/master.zip> & Extract it.
 
 2. Install Requirements  `pip install -r requirements.txt`
 
