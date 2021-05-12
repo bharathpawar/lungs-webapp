@@ -1,4 +1,4 @@
-from __future__ import division, print_function
+﻿from __future__ import division, print_function
 # coding=utf-8
 import sys
 import os
@@ -14,29 +14,35 @@ from keras.preprocessing import image
 # Flask utils
 from flask import Flask, redirect, url_for, request, render_template
 from werkzeug.utils import secure_filename
-from gevent.pywsgi import WSGIServer
+from gevent.wsgi import WSGIServer
 
 # Define a flask app
 app = Flask(__name__)
 
 # Model saved with Keras model.save()
 MODEL_PATH = 'models/xray_model.h5'
-print(" MODEL_PATH :",MODEL_PATH)
+
+# Load your trained model
+model = load_model(MODEL_PATH)
+# model._make_predict_function()          # Necessary to make everything ready to run on the GPU ahead of time
+print('Model loaded. Start serving...')
+
+
+# You can also use pretrained model from Keras
+# Check https://keras.io/applications/
+# from keras.applications.resnet50 import ResNet50
+# model = ResNet50(weights='imagenet')
+# print('Model loaded. Check http://127.0.0.1:5000/')
 
 
 def model_predict(img_path, model):
-    img = image.load_img(img_path, target_size=(200, 200))
+    img = image.load_img(img_path, target_size=(64, 64))  # target_size must agree with what the trained model expects!!
 
     # Preprocessing the image
-    x = image.img_to_array(img)
-    # x = np.true_divide(x, 255)
-    x = np.expand_dims(x, axis=0)
+    img = image.img_to_array(img)
+    img = np.expand_dims(img, axis=0)
 
-    # Be careful how your trained model deals with the input
-    # otherwise, it won't make correct prediction!
-    x = preprocess_input(x, mode='caffe')
-
-    preds = model.predict(x)
+    preds = model.predict(img)
     return preds
 
 
@@ -58,28 +64,22 @@ def upload():
             basepath, 'uploads', secure_filename(f.filename))
         f.save(file_path)
 
-        # Load your trained model
-        model = load_model(MODEL_PATH)
-        print("*** Model Loaded ***")
-        model.make_predict_function()
-
         # Make prediction
         preds = model_predict(file_path, model)
-        print('*** preds ***')
+        os.remove(file_path)  # removes file from the server after prediction has been returned
 
-        # Process your result for human
-        # pred_class = preds.argmax(axis=-1)            # Simple argmax
-        pred_class = decode_predictions(preds, top=1)   # ImageNet Decode
-        print('*** pred class ***')
-        result = str(pred_class[0][0][1])               # Convert to string
-        print('*** result ***')
-        return result
-    elif request.method == 'GET':
-        return render_template('index.html')
+        # Arrange the correct return according to the model.
+        # In this model 1 is Pneumonia and 0 is Normal.
+        str1 = 'Pneumonia'
+        str2 = 'Normal'
+        if preds == 1:
+            return str1
+        else:
+            return str2
     return None
+
+    # this section is used by gunicorn to serve the app on Heroku
 
 
 if __name__ == '__main__':
-    print('*** App Started ***')
-    app.run(debug=True)
-
+    app.run()
