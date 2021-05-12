@@ -14,35 +14,35 @@ from keras.preprocessing import image
 # Flask utils
 from flask import Flask, redirect, url_for, request, render_template
 from werkzeug.utils import secure_filename
-from gevent.wsgi import WSGIServer
+from gevent.pywsgi import WSGIServer
 
 # Define a flask app
 app = Flask(__name__)
 
 # Model saved with Keras model.save()
-MODEL_PATH = 'models/xray_model.h5'
-
-# Load your trained model
+MODEL_PATH = 'models/model_resnet.h5'
+print(" MODEL_PATH :",MODEL_PATH)
+#Load your trained model
 model = load_model(MODEL_PATH)
-# model._make_predict_function()          # Necessary to make everything ready to run on the GPU ahead of time
+#model._make_predict_function()          # Necessary to make everything ready to run on the GPU ahead of time
 print('Model loaded. Start serving...')
-
 
 # You can also use pretrained model from Keras
 # Check https://keras.io/applications/
-# from keras.applications.resnet50 import ResNet50
-# model = ResNet50(weights='imagenet')
-# print('Model loaded. Check http://127.0.0.1:5000/')
-
+#from keras.applications.resnet50 import ResNet50
+#model = ResNet50(weights='imagenet')
+#print('Model loaded. Check http://127.0.0.1:5000/')
 
 def model_predict(img_path, model):
-    img = image.load_img(img_path, target_size=(200, 200))  # target_size must agree with what the trained model expects!!
-
+    img = image.load_img(img_path, target_size=(200, 200))
     # Preprocessing the image
-    img = image.img_to_array(img)
-    img = np.expand_dims(img, axis=0)
-
-    preds = model.predict(img)
+    x = image.img_to_array(img)
+    # x = np.true_divide(x, 255)
+    x = np.expand_dims(x, axis=0)
+    # Be careful how your trained model deals with the input
+    # otherwise, it won't make correct prediction!
+    x = preprocess_input(x, mode='caffe')
+    preds = model.predict(x)
     return preds
 
 
@@ -57,7 +57,6 @@ def upload():
     if request.method == 'POST':
         # Get the file from post request
         f = request.files['file']
-
         # Save the file to ./uploads
         basepath = os.path.dirname(__file__)
         file_path = os.path.join(
@@ -66,10 +65,9 @@ def upload():
 
         # Make prediction
         preds = model_predict(file_path, model)
-        os.remove(file_path)  # removes file from the server after prediction has been returned
-
+        os.remove(file_path)#removes file from the server after prediction has been returned
         # Arrange the correct return according to the model.
-        # In this model 1 is Pneumonia and 0 is Normal.
+		# In this model 1 is Pneumonia and 0 is Normal.
         str1 = 'Pneumonia'
         str2 = 'Normal'
         if preds == 1:
@@ -78,8 +76,10 @@ def upload():
             return str2
     return None
 
-    # this section is used by gunicorn to serve the app on Heroku
-
-
+    #this section is used by gunicorn to serve the app on Heroku
 if __name__ == '__main__':
-    app.run()
+        app.run()
+    #uncomment this section to serve the app locally with gevent at:  http://localhost:5000
+    # Serve the app with gevent 
+    #http_server = WSGIServer(('', 5000), app)
+    #http_server.serve_forever()
