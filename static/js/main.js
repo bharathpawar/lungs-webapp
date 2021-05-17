@@ -46,6 +46,8 @@ $(document).ready(function () {
                 $('.loader').hide();
                 $('#result').fadeIn(600);
                 $('#result').text(' Result:  ' + data);
+                $('#result').text(' symptoms:  ' + "People may experience:Pain types: can be sharp in the chestWhole body: fever, chills, dehydration, fatigue, loss of appetite, malaise, clammy skin, or sweatingRespiratory: fast breathing, shallow breathing, shortness of breath, or wheezingAlso common: coughing or fast heart rate");
+                
                 console.log('Success!');
             },
         });
